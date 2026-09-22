@@ -40,13 +40,24 @@ func main() {
 		logger.Error("auth initialization failed", "error", err)
 		os.Exit(2)
 	}
+	mcpVerifier := verifier
+	mcpWrap := func(h http.Handler) http.Handler { return h }
+	if cfg.MCPTrustLoopback {
+		trust, err := authn.NewLoopbackTrust(verifier, cfg.MCPTrustedSubject)
+		if err != nil {
+			logger.Error("trusted loopback initialization failed", "error", err)
+			os.Exit(2)
+		}
+		mcpVerifier = trust.Verifier()
+		mcpWrap = trust.Middleware
+	}
 
 	hub := relay.NewHub(cfg.MaxInFlightPerDevice)
 	auditWriter := audit.New(st, logger, 2048)
 	defer auditWriter.Close()
 
 	metadataURL := cfg.PublicBaseURL + "/.well-known/oauth-protected-resource/mcp"
-	mcpSrv := mcpserver.New(st, hub, auditWriter, verifier, metadataURL)
+	mcpSrv := mcpserver.New(st, hub, auditWriter, mcpVerifier, metadataURL)
 	cp := controlplane.New(st, hub, verifier, cfg.PublicBaseURL, cfg.AllowedOrigins, logger, []byte(cfg.PairingSecret))
 
 	mux := http.NewServeMux()
@@ -58,10 +69,8 @@ func main() {
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte(`{"status":"ready"}`))
 	})
-	metadata := protectedResourceMetadata(cfg)
-	mux.HandleFunc("GET /.well-known/oauth-protected-resource", metadata)
-	mux.HandleFunc("GET /.well-known/oauth-protected-resource/mcp", metadata)
-	mux.Handle("/mcp", originGuard(cfg.AllowedOrigins, mcpSrv.Handler()))
+	registerMetadataRoutes(mux, cfg)
+	mux.Handle("/mcp", originGuard(cfg.AllowedOrigins, mcpWrap(mcpSrv.Handler())))
 	cp.Register(mux)
 
 	httpServer := &http.Server{
@@ -106,6 +115,15 @@ func buildVerifier(cfg config.Server) (authn.Verifier, error) {
 	default:
 		return nil, errors.New("unsupported auth mode")
 	}
+}
+
+func registerMetadataRoutes(mux *http.ServeMux, cfg config.Server) {
+	if cfg.MCPTrustLoopback {
+		return
+	}
+	metadata := protectedResourceMetadata(cfg)
+	mux.HandleFunc("GET /.well-known/oauth-protected-resource", metadata)
+	mux.HandleFunc("GET /.well-known/oauth-protected-resource/mcp", metadata)
 }
 
 func protectedResourceMetadata(cfg config.Server) http.HandlerFunc {

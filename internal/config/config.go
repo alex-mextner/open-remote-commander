@@ -28,6 +28,8 @@ type Server struct {
 	NeonHTTPEndpoint     string
 	AllowedOrigins       []string
 	MaxInFlightPerDevice int
+	MCPTrustLoopback     bool
+	MCPTrustedSubject    string
 }
 
 type Agent struct {
@@ -59,6 +61,8 @@ func LoadServer() (Server, error) {
 		NeonHTTPEndpoint:     os.Getenv("ORC_NEON_HTTP_ENDPOINT"),
 		AllowedOrigins:       splitCSV(os.Getenv("ORC_ALLOWED_ORIGINS")),
 		MaxInFlightPerDevice: envInt("ORC_MAX_IN_FLIGHT_PER_DEVICE", 16),
+		MCPTrustLoopback:     envBool("ORC_MCP_TRUST_LOOPBACK", false),
+		MCPTrustedSubject:    strings.TrimSpace(os.Getenv("ORC_MCP_TRUSTED_SUBJECT")),
 	}
 	if c.ListenAddr == "" {
 		return Server{}, errors.New("listen address is required")
@@ -67,7 +71,7 @@ func LoadServer() (Server, error) {
 	if err != nil || u.Host == "" {
 		return Server{}, errors.New("invalid ORC_PUBLIC_BASE_URL")
 	}
-	if u.Scheme != "https" && !(u.Scheme == "http" && isLoopback(u.Hostname())) {
+	if u.Scheme != "https" && (u.Scheme != "http" || !isLoopback(u.Hostname())) {
 		return Server{}, errors.New("ORC_PUBLIC_BASE_URL must use https outside loopback")
 	}
 	if c.MaxInFlightPerDevice < 1 || c.MaxInFlightPerDevice > 128 {
@@ -75,6 +79,15 @@ func LoadServer() (Server, error) {
 	}
 	if len(c.PairingSecret) < 32 {
 		return Server{}, errors.New("ORC_PAIRING_SECRET must be at least 32 bytes")
+	}
+	if c.MCPTrustLoopback {
+		if c.MCPTrustedSubject == "" {
+			return Server{}, errors.New("ORC_MCP_TRUSTED_SUBJECT is required when ORC_MCP_TRUST_LOOPBACK=true")
+		}
+		host, _, err := net.SplitHostPort(c.ListenAddr)
+		if err != nil || !isLoopback(host) {
+			return Server{}, errors.New("ORC_MCP_TRUST_LOOPBACK requires an explicit loopback ORC_LISTEN_ADDR")
+		}
 	}
 	switch c.AuthMode {
 	case "dev":
@@ -127,7 +140,7 @@ func LoadAgent() (Agent, error) {
 	if err != nil || u.Host == "" {
 		return Agent{}, errors.New("invalid ORC_SERVER_URL")
 	}
-	if u.Scheme != "https" && !(u.Scheme == "http" && isLoopback(u.Hostname())) {
+	if u.Scheme != "https" && (u.Scheme != "http" || !isLoopback(u.Hostname())) {
 		return Agent{}, errors.New("ORC_SERVER_URL must use https outside loopback")
 	}
 	if c.MaxProcesses < 1 || c.MaxProcesses > 64 {
