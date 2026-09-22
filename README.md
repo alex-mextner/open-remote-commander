@@ -68,6 +68,8 @@ go run ./cmd/orc-agent
 
 For a memory-only development run, leave `DATABASE_URL` empty and set the `ORC_BOOTSTRAP_DEVICE_*` values. The bootstrap token must match `ORC_AGENT_TOKEN` and the bootstrap owner must match the authenticated MCP subject.
 
+`ORC_PAIRING_SECRET` must be a separate high-entropy server secret used to HMAC short human pairing codes before storage.
+
 `ORC_AUTH_MODE=dev` is loopback/development authentication only. For an exposed endpoint use `ORC_AUTH_MODE=introspection` with a standards-compliant authorization server. The verifier requires an active token with `sub`, expiration, the MCP resource in `aud`, and the requested scopes. Protected Resource Metadata then advertises `ORC_AUTH_ISSUER` as required by MCP authorization discovery.
 
 ### Neon
@@ -76,7 +78,7 @@ Use the pooled Neon URL as `DATABASE_URL` for application traffic. Apply `migrat
 
 ### Vercel
 
-`web/` is a static control-plane shell deployable independently on Vercel. The long-lived Go relay remains a normal container/service so WebSocket lifecycle, graceful shutdown, connection ownership, and backpressure are explicit. A Vercel Go adapter can be added for stateless control-plane routes without moving local execution into serverless functions.
+`web/` is a dependency-free control-plane dashboard deployable independently on Vercel. It can approve pairing codes, list device status, and revoke devices; bearer tokens stay in browser memory only. The long-lived Go relay remains a normal container/service so WebSocket lifecycle, graceful shutdown, connection ownership, and backpressure are explicit. A Vercel Go adapter can be added for stateless control-plane routes without moving local execution into serverless functions.
 
 ## Verification
 

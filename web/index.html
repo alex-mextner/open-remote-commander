@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="referrer" content="no-referrer">
+  <meta name="color-scheme" content="light dark">
+  <title>Open Remote Commander</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 9l3 3-3 3M13 15h3M5 4h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z"/></svg>
+      <span>Open Remote Commander</span>
+    </div>
+    <a class="text-link" href="https://github.com/alex-mextner/open-remote-commander" rel="noreferrer">GitHub</a>
+  </header>
+
+  <main class="shell">
+    <section class="hero">
+      <div>
+        <p class="eyebrow">Open-source remote MCP</p>
+        <h1>Your computers, reachable by your AI — without an inbound port.</h1>
+        <p class="lede">The agent connects outward to your Go relay. Files and processes stay on the paired machine; the control plane stores only identity and audit metadata.</p>
+      </div>
+      <div class="status-card">
+        <span class="status-dot" id="gateway-dot"></span>
+        <div><strong id="gateway-status">Gateway not connected</strong><small id="gateway-detail">Configure it below</small></div>
+      </div>
+    </section>
+
+    <section class="grid two">
+      <article class="card">
+        <div class="card-head"><div><p class="kicker">Connection</p><h2>Gateway access</h2></div><span class="badge">session only</span></div>
+        <label for="gateway">Gateway URL</label>
+        <input id="gateway" inputmode="url" placeholder="https://orc.example.com" autocomplete="url">
+        <label for="token">Access token</label>
+        <input id="token" type="password" placeholder="OAuth bearer token" autocomplete="off">
+        <p class="hint">The browser keeps the token only in memory. It is never written to localStorage.</p>
+        <div class="actions"><button id="connect" class="primary">Connect</button><button id="disconnect" class="secondary">Clear</button></div>
+      </article>
+
+      <article class="card" id="pair-card">
+        <div class="card-head"><div><p class="kicker">Pairing</p><h2>Approve a device</h2></div></div>
+        <label for="pair-code">Code from <code>orc-agent</code></label>
+        <input id="pair-code" placeholder="ABCD-EFGH" autocomplete="one-time-code" maxlength="9">
+        <p class="hint">Verify that this matches the code printed on the computer you are pairing.</p>
+        <div class="actions"><button id="approve" class="primary">Approve device</button></div>
+        <div class="message" id="pair-message" role="status" aria-live="polite"></div>
+      </article>
+    </section>
+
+    <section class="card devices-card">
+      <div class="card-head"><div><p class="kicker">Machines</p><h2>Paired devices</h2></div><button id="refresh" class="icon-button" title="Refresh devices" aria-label="Refresh devices">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8.1 8.1 0 0 0-15.5-2M4 4v5h5M4 13a8.1 8.1 0 0 0 15.5 2M20 20v-5h-5"/></svg>
+      </button></div>
+      <div id="devices" class="devices empty"><p>Connect to a gateway to load devices.</p></div>
+    </section>
+
+    <section class="grid three principles">
+      <article><strong>Local execution</strong><p>Filesystem and process tools execute only inside the Go agent running on your computer.</p></article>
+      <article><strong>Bounded by default</strong><p>Payloads, process output, process count and in-flight remote calls have hard limits.</p></article>
+      <article><strong>Metadata-only audit</strong><p>Tool arguments, file contents and command output are not stored in the application audit schema.</p></article>
+    </section>
+  </main>
+
+  <footer><span>Engineering preview</span><span>Apache-2.0</span></footer>
+  <script src="/app.js" defer></script>
+</body>
+</html>
