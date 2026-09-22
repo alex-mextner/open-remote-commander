@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"github.com/alex-mextner/open-remote-commander/internal/authn"
+	"github.com/alex-mextner/open-remote-commander/internal/protocol"
 	"github.com/alex-mextner/open-remote-commander/internal/relay"
 	"github.com/alex-mextner/open-remote-commander/internal/store"
 	"github.com/alex-mextner/open-remote-commander/internal/ws"
@@ -49,10 +50,10 @@ func New(st store.Store, hub *relay.Hub, verifier authn.Verifier, baseURL string
 
 func (h *HTTP) Register(mux *http.ServeMux) {
 	mux.Handle("POST /api/v1/pairings", h.cors(http.HandlerFunc(h.startPairing)))
-	mux.Handle("POST /api/v1/pairings/approve", h.cors(http.HandlerFunc(h.requireUser("orc:tools", h.approvePairing))))
+	mux.Handle("POST /api/v1/pairings/approve", h.cors(h.requireUser("orc:tools", h.approvePairing)))
 	mux.Handle("POST /api/v1/pairings/token", h.cors(http.HandlerFunc(h.consumePairing)))
-	mux.Handle("GET /api/v1/devices", h.cors(http.HandlerFunc(h.requireUser("orc:tools", h.listDevices))))
-	mux.Handle("DELETE /api/v1/devices/{device_id}", h.cors(http.HandlerFunc(h.requireUser("orc:tools", h.revokeDevice))))
+	mux.Handle("GET /api/v1/devices", h.cors(h.requireUser("orc:tools", h.listDevices)))
+	mux.Handle("DELETE /api/v1/devices/{device_id}", h.cors(h.requireUser("orc:tools", h.revokeDevice)))
 	mux.HandleFunc("OPTIONS /api/v1/{rest...}", h.options)
 	mux.HandleFunc("GET /agent/v1/connect", h.agentConnect)
 	mux.HandleFunc("GET /pair", h.pairPage)
@@ -236,7 +237,7 @@ func (h *HTTP) agentConnect(w http.ResponseWriter, r *http.Request) {
 		writeError(w, 401, "unauthorized", "invalid device credentials")
 		return
 	}
-	conn, err := ws.Upgrade(w, r, 4<<20)
+	conn, err := ws.Upgrade(w, r, protocol.MaxFrameBytes)
 	if err != nil {
 		h.log.Debug("websocket upgrade failed", "error", err)
 		return

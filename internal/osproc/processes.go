@@ -16,7 +16,7 @@ import (
 	"time"
 )
 
-const maxProcessOutput = 4 << 20
+const maxProcessOutput = 2 << 20
 
 type Process struct {
 	PID     int    `json:"pid"`
@@ -25,17 +25,17 @@ type Process struct {
 	Args    string `json:"args,omitempty"`
 }
 
-func List(ctx context.Context, max int) ([]Process, error) {
-	if max <= 0 {
-		max = 1000
+func List(ctx context.Context, limit int) ([]Process, error) {
+	if limit <= 0 {
+		limit = 1000
 	}
-	if max > 5000 {
-		max = 5000
+	if limit > 5000 {
+		limit = 5000
 	}
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 	if runtime.GOOS == "windows" {
-		return listWindows(ctx, max)
+		return listWindows(ctx, limit)
 	}
 	cmd := exec.CommandContext(ctx, "ps", "-axo", "pid=,ppid=,comm=,args=")
 	out, err := limitedOutput(cmd)
@@ -45,7 +45,7 @@ func List(ctx context.Context, max int) ([]Process, error) {
 	var result []Process
 	s := bufio.NewScanner(strings.NewReader(string(out)))
 	s.Buffer(make([]byte, 64<<10), 1<<20)
-	for s.Scan() && len(result) < max {
+	for s.Scan() && len(result) < limit {
 		fields := strings.Fields(s.Text())
 		if len(fields) < 3 {
 			continue
@@ -65,7 +65,7 @@ func List(ctx context.Context, max int) ([]Process, error) {
 	return result, s.Err()
 }
 
-func listWindows(ctx context.Context, max int) ([]Process, error) {
+func listWindows(ctx context.Context, limit int) ([]Process, error) {
 	cmd := exec.CommandContext(ctx, "tasklist", "/FO", "CSV", "/NH")
 	out, err := limitedOutput(cmd)
 	if err != nil {
@@ -73,7 +73,7 @@ func listWindows(ctx context.Context, max int) ([]Process, error) {
 	}
 	r := csv.NewReader(strings.NewReader(string(out)))
 	var result []Process
-	for len(result) < max {
+	for len(result) < limit {
 		rec, err := r.Read()
 		if errors.Is(err, io.EOF) {
 			break
@@ -132,7 +132,7 @@ func limitedOutput(cmd *exec.Cmd) ([]byte, error) {
 		return nil, errors.New("process list output exceeds limit")
 	}
 	if waitErr != nil {
-		return nil, fmt.Errorf("process listing failed: %v: %s", waitErr, strings.TrimSpace(stderr.String()))
+		return nil, fmt.Errorf("process listing failed: %w: %s", waitErr, strings.TrimSpace(stderr.String()))
 	}
 	return b, nil
 }

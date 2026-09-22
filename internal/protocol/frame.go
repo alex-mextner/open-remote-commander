@@ -13,7 +13,7 @@ const (
 	TypePong   = "pong"
 )
 
-const MaxFrameBytes int64 = 4 << 20
+const MaxFrameBytes int64 = 16 << 20
 
 type RemoteError struct {
 	Code    string `json:"code"`

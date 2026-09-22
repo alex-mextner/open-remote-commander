@@ -2,6 +2,7 @@ package executor
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -10,6 +11,7 @@ import (
 
 	"github.com/alex-mextner/open-remote-commander/internal/pathpolicy"
 	"github.com/alex-mextner/open-remote-commander/internal/processmgr"
+	"github.com/alex-mextner/open-remote-commander/internal/protocol"
 )
 
 func TestWriteThenReadFile(t *testing.T) {
@@ -119,6 +121,19 @@ func TestGetConfigContainsNoSecrets(t *testing.T) {
 	for _, forbidden := range []string{"token", "secret", "agent_token", "pairing_secret"} {
 		if _, ok := m[forbidden]; ok {
 			t.Fatalf("config contains forbidden key %q: %#v", forbidden, m)
+		}
+	}
+}
+
+func TestEncodedReadBudgetsFitRelayFrame(t *testing.T) {
+	const envelopeHeadroom = 1 << 20
+	for name, rawBytes := range map[string]int{
+		"single-read": maxReadBytes,
+		"multi-read":  maxCombinedReadBytes,
+	} {
+		encoded := base64.StdEncoding.EncodedLen(rawBytes) + envelopeHeadroom
+		if int64(encoded) > protocol.MaxFrameBytes {
+			t.Errorf("%s encoded budget=%d exceeds relay frame=%d", name, encoded, protocol.MaxFrameBytes)
 		}
 	}
 }

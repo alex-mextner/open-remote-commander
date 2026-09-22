@@ -107,7 +107,7 @@ Codes MUST be stored as hashes. Pairing rows MUST expire and MUST be one-time co
 
 Transport: WebSocket over TLS (`wss://`) except loopback development. Client-to-server WebSocket frames are masked per RFC 6455. Compression is disabled in v0.1.
 
-Frame limit: 4 MiB. Default concurrent in-flight calls per device: 16, configurable up to 128.
+Frame limit: 16 MiB. Default concurrent in-flight calls per device: 16, configurable up to 128.
 
 ### Call frame
 
@@ -176,7 +176,7 @@ Future compatibility tools: AST/symbol-aware code search, structured-document re
 - Existing paths are canonicalized with symlink evaluation before root containment checks.
 - New paths are checked through their nearest existing ancestor so a symlinked parent cannot escape the allowed root.
 - Writes refuse to replace a symlink directly.
-- Reads/writes are bounded to 4 MiB per call in v0.1.
+- Single-file reads/writes are bounded to 4 MiB per call; multi-read responses are bounded to 8 MiB raw before encoding.
 - Directory listing is bounded to 2,000 entries per call.
 
 ## 10. Process policy

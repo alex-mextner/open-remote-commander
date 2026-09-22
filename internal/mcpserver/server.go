@@ -315,35 +315,134 @@ func rpcWrite(w http.ResponseWriter, status int, id json.RawMessage, result any,
 	_ = json.NewEncoder(w).Encode(rpcResponse{JSONRPC: "2.0", ID: id, Result: result, Error: e})
 }
 
+type toolSafety uint8
+
+const (
+	safetyUnspecified toolSafety = iota
+	safetyReadOnly
+	safetyMutating
+	safetyDestructive
+)
+
+type toolSpec struct {
+	name        string
+	description string
+	inputSchema map[string]any
+	safety      toolSafety
+	remote      bool
+}
+
+var (
+	toolSpecs             = buildToolSpecs()
+	remoteToolSet         = buildRemoteToolSet(toolSpecs)
+	cachedToolDefinitions = buildToolDefinitions(toolSpecs)
+)
+
 func knownRemoteTool(name string) bool {
-	switch name {
-	case "ping", "read_file", "write_file", "list_directory", "create_directory", "move_file", "get_file_info", "start_process", "read_process_output", "interact_with_process", "force_terminate":
-		return true
-	default:
-		return false
-	}
+	_, ok := remoteToolSet[name]
+	return ok
 }
 
 func toolDefinitions() []map[string]any {
-	str := func(desc string) map[string]any { return map[string]any{"type": "string", "description": desc} }
-	integer := func(desc string) map[string]any { return map[string]any{"type": "integer", "description": desc} }
-	boolean := func(desc string) map[string]any { return map[string]any{"type": "boolean", "description": desc} }
-	obj := func(props map[string]any, required ...string) map[string]any {
-		return map[string]any{"type": "object", "properties": props, "required": required, "additionalProperties": false}
+	return cachedToolDefinitions
+}
+
+func buildRemoteToolSet(specs []toolSpec) map[string]struct{} {
+	out := make(map[string]struct{}, len(specs))
+	seen := make(map[string]struct{}, len(specs))
+	for _, spec := range specs {
+		if spec.name == "" {
+			panic("MCP tool name is empty")
+		}
+		if _, exists := seen[spec.name]; exists {
+			panic("duplicate MCP tool name: " + spec.name)
+		}
+		seen[spec.name] = struct{}{}
+		if spec.remote {
+			out[spec.name] = struct{}{}
+		}
 	}
+	return out
+}
+
+func buildToolDefinitions(specs []toolSpec) []map[string]any {
+	defs := make([]map[string]any, 0, len(specs))
+	for _, spec := range specs {
+		defs = append(defs, map[string]any{
+			"name":        spec.name,
+			"description": spec.description,
+			"inputSchema": spec.inputSchema,
+			"annotations": annotationsForSafety(spec.safety),
+		})
+	}
+	return defs
+}
+
+func annotationsForSafety(safety toolSafety) map[string]any {
+	switch safety {
+	case safetyReadOnly:
+		return map[string]any{"readOnlyHint": true, "destructiveHint": false}
+	case safetyMutating:
+		return map[string]any{"readOnlyHint": false, "destructiveHint": false}
+	case safetyDestructive:
+		return map[string]any{"readOnlyHint": false, "destructiveHint": true}
+	default:
+		panic("MCP tool safety classification is required")
+	}
+}
+
+func schemaString(desc string) map[string]any {
+	return map[string]any{"type": "string", "description": desc}
+}
+
+func schemaInteger(desc string) map[string]any {
+	return map[string]any{"type": "integer", "description": desc}
+}
+
+func schemaBoolean(desc string) map[string]any {
+	return map[string]any{"type": "boolean", "description": desc}
+}
+
+func schemaObject(props map[string]any, required ...string) map[string]any {
+	return map[string]any{
+		"type":                 "object",
+		"properties":           props,
+		"required":             required,
+		"additionalProperties": false,
+	}
+}
+
+func buildToolSpecs() []toolSpec {
+	str := schemaString
+	integer := schemaInteger
+	boolean := schemaBoolean
+	obj := schemaObject
 	dev := str("paired device identifier")
-	return []map[string]any{
-		{"name": "list_devices", "description": "List paired computers and online status.", "inputSchema": obj(map[string]any{})},
-		{"name": "ping", "description": "Check that a paired computer is reachable.", "inputSchema": obj(map[string]any{"device_id": dev}, "device_id")},
-		{"name": "read_file", "description": "Read a bounded chunk of a file.", "inputSchema": obj(map[string]any{"device_id": dev, "path": str("path on the paired device"), "offset": integer("byte offset"), "max_bytes": integer("maximum bytes")}, "device_id", "path")},
-		{"name": "write_file", "description": "Atomically write a bounded file.", "inputSchema": obj(map[string]any{"device_id": dev, "path": str("destination path"), "content": str("file content"), "encoding": str("utf-8 or base64"), "mode": integer("optional POSIX mode")}, "device_id", "path", "content")},
-		{"name": "list_directory", "description": "List a bounded number of directory entries.", "inputSchema": obj(map[string]any{"device_id": dev, "path": str("directory path")}, "device_id", "path")},
-		{"name": "create_directory", "description": "Create a directory inside allowed roots.", "inputSchema": obj(map[string]any{"device_id": dev, "path": str("directory path"), "mode": integer("optional POSIX mode")}, "device_id", "path")},
-		{"name": "move_file", "description": "Move or rename a file. Existing destinations are preserved unless overwrite=true.", "inputSchema": obj(map[string]any{"device_id": dev, "source": str("source path"), "destination": str("destination path"), "overwrite": boolean("replace an existing non-symlink destination")}, "device_id", "source", "destination")},
-		{"name": "get_file_info", "description": "Get file or directory metadata.", "inputSchema": obj(map[string]any{"device_id": dev, "path": str("path")}, "device_id", "path")},
-		{"name": "start_process", "description": "Start a bounded process session; argv is preferred and shell is disabled by default.", "inputSchema": obj(map[string]any{"device_id": dev, "argv": map[string]any{"type": "array", "items": str("argument")}, "command": str("shell command, only if enabled on the agent"), "cwd": str("working directory"), "env": map[string]any{"type": "object", "additionalProperties": map[string]any{"type": "string"}}}, "device_id")},
-		{"name": "read_process_output", "description": "Read process output from an absolute cursor.", "inputSchema": obj(map[string]any{"device_id": dev, "process_id": str("process session ID"), "cursor": integer("absolute output cursor"), "max_bytes": integer("maximum bytes")}, "device_id", "process_id")},
-		{"name": "interact_with_process", "description": "Write data to process stdin.", "inputSchema": obj(map[string]any{"device_id": dev, "process_id": str("process session ID"), "data": str("stdin data"), "encoding": str("utf-8 or base64")}, "device_id", "process_id", "data")},
-		{"name": "force_terminate", "description": "Terminate a process session.", "inputSchema": obj(map[string]any{"device_id": dev, "process_id": str("process session ID")}, "device_id", "process_id")},
+
+	// Search sessions are classified read-only because they only create
+	// ephemeral in-agent cursor state and never mutate the device environment.
+	return []toolSpec{
+		{name: "list_devices", description: "List paired computers and online status.", inputSchema: obj(map[string]any{}), safety: safetyReadOnly},
+		{name: "ping", description: "Check that a paired computer is reachable.", inputSchema: obj(map[string]any{"device_id": dev}, "device_id"), safety: safetyReadOnly, remote: true},
+		{name: "read_file", description: "Read a bounded chunk of a file.", inputSchema: obj(map[string]any{"device_id": dev, "path": str("path on the paired device"), "offset": integer("byte offset"), "max_bytes": integer("maximum bytes")}, "device_id", "path"), safety: safetyReadOnly, remote: true},
+		{name: "write_file", description: "Atomically write a bounded file.", inputSchema: obj(map[string]any{"device_id": dev, "path": str("destination path"), "content": str("file content"), "encoding": str("utf-8 or base64"), "mode": integer("optional POSIX mode")}, "device_id", "path", "content"), safety: safetyDestructive, remote: true},
+		{name: "list_directory", description: "List a bounded number of directory entries.", inputSchema: obj(map[string]any{"device_id": dev, "path": str("directory path")}, "device_id", "path"), safety: safetyReadOnly, remote: true},
+		{name: "create_directory", description: "Create a directory inside allowed roots.", inputSchema: obj(map[string]any{"device_id": dev, "path": str("directory path"), "mode": integer("optional POSIX mode")}, "device_id", "path"), safety: safetyMutating, remote: true},
+		{name: "move_file", description: "Move or rename a file. Existing destinations are preserved unless overwrite=true.", inputSchema: obj(map[string]any{"device_id": dev, "source": str("source path"), "destination": str("destination path"), "overwrite": boolean("replace an existing non-symlink destination")}, "device_id", "source", "destination"), safety: safetyDestructive, remote: true},
+		{name: "get_file_info", description: "Get file or directory metadata.", inputSchema: obj(map[string]any{"device_id": dev, "path": str("path")}, "device_id", "path"), safety: safetyReadOnly, remote: true},
+		{name: "start_process", description: "Start a bounded process session; argv is preferred and shell is disabled by default.", inputSchema: obj(map[string]any{"device_id": dev, "argv": map[string]any{"type": "array", "items": str("argument")}, "command": str("shell command, only if enabled on the agent"), "cwd": str("working directory"), "env": map[string]any{"type": "object", "additionalProperties": map[string]any{"type": "string"}}}, "device_id"), safety: safetyDestructive, remote: true},
+		{name: "read_process_output", description: "Read process output from an absolute cursor.", inputSchema: obj(map[string]any{"device_id": dev, "process_id": str("process session ID"), "cursor": integer("absolute output cursor"), "max_bytes": integer("maximum bytes")}, "device_id", "process_id"), safety: safetyReadOnly, remote: true},
+		{name: "interact_with_process", description: "Write data to process stdin.", inputSchema: obj(map[string]any{"device_id": dev, "process_id": str("process session ID"), "data": str("stdin data"), "encoding": str("utf-8 or base64")}, "device_id", "process_id", "data"), safety: safetyDestructive, remote: true},
+		{name: "force_terminate", description: "Terminate a process session.", inputSchema: obj(map[string]any{"device_id": dev, "process_id": str("process session ID")}, "device_id", "process_id"), safety: safetyDestructive, remote: true},
+		{name: "read_multiple_files", description: "Read up to 32 files with per-file and combined size limits.", inputSchema: obj(map[string]any{"device_id": dev, "paths": map[string]any{"type": "array", "items": str("path"), "minItems": 1, "maxItems": 32}, "max_bytes_per_file": integer("maximum bytes per file")}, "device_id", "paths"), safety: safetyReadOnly, remote: true},
+		{name: "edit_block", description: "Safely replace an exact UTF-8 text block with replacement-count validation.", inputSchema: obj(map[string]any{"device_id": dev, "file_path": str("file path"), "old_string": str("exact text to replace"), "new_string": str("replacement text"), "expected_replacements": integer("expected number of matches; defaults to 1")}, "device_id", "file_path", "old_string", "new_string"), safety: safetyDestructive, remote: true},
+		{name: "list_sessions", description: "List process sessions started by this agent.", inputSchema: obj(map[string]any{"device_id": dev}, "device_id"), safety: safetyReadOnly, remote: true},
+		{name: "start_search", description: "Start a bounded file-name or content search session.", inputSchema: obj(map[string]any{"device_id": dev, "path": str("root directory"), "pattern": str("literal or regular expression"), "search_type": str("files or content"), "regex": boolean("treat pattern as regular expression"), "case_sensitive": boolean("case-sensitive matching"), "include_hidden": boolean("include hidden files"), "max_results": integer("maximum results"), "max_file_bytes": integer("maximum bytes scanned per file")}, "device_id", "path", "pattern"), safety: safetyReadOnly, remote: true},
+		{name: "get_more_search_results", description: "Read the next page from a search session.", inputSchema: obj(map[string]any{"device_id": dev, "session_id": str("search session ID"), "max_results": integer("maximum results in this page")}, "device_id", "session_id"), safety: safetyReadOnly, remote: true},
+		{name: "stop_search", description: "Stop a running search session.", inputSchema: obj(map[string]any{"device_id": dev, "session_id": str("search session ID")}, "device_id", "session_id"), safety: safetyReadOnly, remote: true},
+		{name: "list_searches", description: "List active search sessions.", inputSchema: obj(map[string]any{"device_id": dev}, "device_id"), safety: safetyReadOnly, remote: true},
+		{name: "list_processes", description: "List operating-system processes on the paired device.", inputSchema: obj(map[string]any{"device_id": dev, "max_results": integer("maximum processes")}, "device_id"), safety: safetyReadOnly, remote: true},
+		{name: "kill_process", description: "Terminate an arbitrary OS process when explicitly enabled by agent policy.", inputSchema: obj(map[string]any{"device_id": dev, "pid": integer("operating-system process ID")}, "device_id", "pid"), safety: safetyDestructive, remote: true},
+		{name: "get_config", description: "Return non-secret agent policy and system information.", inputSchema: obj(map[string]any{"device_id": dev}, "device_id"), safety: safetyReadOnly, remote: true},
 	}
 }
