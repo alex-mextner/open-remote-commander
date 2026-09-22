@@ -31,15 +31,16 @@ type Server struct {
 }
 
 type Agent struct {
-	ServerURL       string
-	DeviceID        string
-	AgentToken      string
-	DeviceName      string
-	AllowedRoots    []string
-	MaxProcesses    int
-	MaxProcessBytes int
-	MaxRuntime      time.Duration
-	AllowShell      bool
+	ServerURL        string
+	DeviceID         string
+	AgentToken       string
+	DeviceName       string
+	AllowedRoots     []string
+	MaxProcesses     int
+	MaxProcessBytes  int
+	MaxRuntime       time.Duration
+	AllowShell       bool
+	AllowKillProcess bool
 }
 
 func LoadServer() (Server, error) {
@@ -111,15 +112,16 @@ func LoadAgent() (Agent, error) {
 		roots[i] = abs
 	}
 	c := Agent{
-		ServerURL:       strings.TrimRight(env("ORC_SERVER_URL", "http://127.0.0.1:8080"), "/"),
-		DeviceID:        os.Getenv("ORC_DEVICE_ID"),
-		AgentToken:      os.Getenv("ORC_AGENT_TOKEN"),
-		DeviceName:      env("ORC_DEVICE_NAME", hostname()),
-		AllowedRoots:    roots,
-		MaxProcesses:    envInt("ORC_MAX_PROCESSES", 8),
-		MaxProcessBytes: envInt("ORC_MAX_PROCESS_BUFFER_BYTES", 1<<20),
-		MaxRuntime:      envDuration("ORC_MAX_PROCESS_RUNTIME", time.Hour),
-		AllowShell:      envBool("ORC_ALLOW_SHELL", false),
+		ServerURL:        strings.TrimRight(env("ORC_SERVER_URL", "http://127.0.0.1:8080"), "/"),
+		DeviceID:         os.Getenv("ORC_DEVICE_ID"),
+		AgentToken:       os.Getenv("ORC_AGENT_TOKEN"),
+		DeviceName:       env("ORC_DEVICE_NAME", hostname()),
+		AllowedRoots:     roots,
+		MaxProcesses:     envInt("ORC_MAX_PROCESSES", 8),
+		MaxProcessBytes:  envInt("ORC_MAX_PROCESS_BUFFER_BYTES", 1<<20),
+		MaxRuntime:       envDuration("ORC_MAX_PROCESS_RUNTIME", time.Hour),
+		AllowShell:       envBool("ORC_ALLOW_SHELL", false),
+		AllowKillProcess: envBool("ORC_ALLOW_KILL_PROCESS", false),
 	}
 	u, err := url.Parse(c.ServerURL)
 	if err != nil || u.Host == "" {

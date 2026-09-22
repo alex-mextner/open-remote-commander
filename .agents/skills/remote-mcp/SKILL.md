@@ -12,4 +12,4 @@ description: MCP and device-relay compatibility rules for Open Remote Commander.
 - Device WebSockets are outbound from the controlled machine, one current owner connection per device ID.
 - Calls use random IDs and bounded pending maps. Closing a socket must immediately fail all pending calls.
 - Breaking device-protocol changes get a new `/agent/vN/` endpoint; do not silently reinterpret old frames.
-- New tools require: public JSON type, MCP schema/handler, executor implementation, tests, security review and compatibility docs.
+- New tools require: public JSON type, MCP schema/handler, executor implementation, hard resource bounds, tests, security review and compatibility docs. Search/edit/process tools must fail closed on ambiguous or policy-disallowed operations.

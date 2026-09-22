@@ -66,7 +66,7 @@ func main() {
 		os.Exit(2)
 	}
 	pm := processmgr.New(cfg.MaxProcesses, cfg.MaxProcessBytes, cfg.MaxRuntime, cfg.AllowShell)
-	exec := executor.New(policy, pm)
+	exec := executor.NewWithOptions(policy, pm, executor.Options{AllowKillProcess: cfg.AllowKillProcess})
 
 	backoff := time.Second
 	for ctx.Err() == nil {

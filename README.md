@@ -30,17 +30,27 @@ The current server uses the official `modelcontextprotocol/go-sdk` and a statele
 - `list_devices`
 - `ping`
 - `read_file`
+- `read_multiple_files`
 - `write_file`
+- `edit_block`
 - `list_directory`
 - `create_directory`
 - `move_file`
 - `get_file_info`
+- `start_search`
+- `get_more_search_results`
+- `stop_search`
+- `list_searches`
 - `start_process`
 - `read_process_output`
 - `interact_with_process`
 - `force_terminate`
+- `list_sessions`
+- `list_processes`
+- `kill_process` (local policy opt-in)
+- `get_config`
 
-The filesystem layer canonicalizes paths and resolves symlinks before enforcing allowed roots. Read sizes, relay frame sizes, process buffers, HTTP headers, and process concurrency are bounded.
+The filesystem layer canonicalizes paths and resolves symlinks before enforcing allowed roots. `edit_block` refuses ambiguous replacement counts; search sessions and multi-file reads are bounded. Read/write sizes, relay frames, process buffers, HTTP headers, search results, and process concurrency are all capped. Arbitrary OS-PID termination is disabled unless the local agent explicitly sets `ORC_ALLOW_KILL_PROCESS=true`.
 
 ## Security model
 

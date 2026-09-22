@@ -194,3 +194,103 @@ type ForceTerminateArgs struct {
 	DeviceID  DeviceID  `json:"device_id"`
 	ProcessID ProcessID `json:"process_id"`
 }
+
+type ReadMultipleFilesArgs struct {
+	DeviceID        DeviceID `json:"device_id"`
+	Paths           []string `json:"paths" jsonschema:"files to read; maximum 32"`
+	MaxBytesPerFile int      `json:"max_bytes_per_file,omitempty"`
+}
+
+type MultiFileRead struct {
+	Path      string `json:"path"`
+	Encoding  string `json:"encoding,omitempty"`
+	Content   string `json:"content,omitempty"`
+	Truncated bool   `json:"truncated,omitempty"`
+	Error     string `json:"error,omitempty"`
+}
+
+type ReadMultipleFilesResult struct {
+	Files []MultiFileRead `json:"files"`
+}
+
+type EditBlockArgs struct {
+	DeviceID             DeviceID `json:"device_id"`
+	FilePath             string   `json:"file_path"`
+	OldString            string   `json:"old_string"`
+	NewString            string   `json:"new_string"`
+	ExpectedReplacements int      `json:"expected_replacements,omitempty" jsonschema:"exact expected replacement count; default 1"`
+}
+
+type EditBlockResult struct {
+	Path         string `json:"path"`
+	Replacements int    `json:"replacements"`
+	BytesWritten int    `json:"bytes_written"`
+}
+
+type StartSearchArgs struct {
+	DeviceID      DeviceID `json:"device_id"`
+	Path          string   `json:"path"`
+	Pattern       string   `json:"pattern"`
+	SearchType    string   `json:"search_type,omitempty" jsonschema:"content or files"`
+	Regex         bool     `json:"regex,omitempty"`
+	CaseSensitive bool     `json:"case_sensitive,omitempty"`
+	IncludeHidden bool     `json:"include_hidden,omitempty"`
+	MaxResults    int      `json:"max_results,omitempty"`
+	MaxFileBytes  int64    `json:"max_file_bytes,omitempty"`
+}
+
+type StartSearchResult struct {
+	SessionID string `json:"session_id"`
+}
+
+type SearchMatch struct {
+	Path    string `json:"path"`
+	Line    int    `json:"line,omitempty"`
+	Column  int    `json:"column,omitempty"`
+	Preview string `json:"preview,omitempty"`
+	Kind    string `json:"kind"`
+}
+
+type GetMoreSearchResultsArgs struct {
+	DeviceID   DeviceID `json:"device_id"`
+	SessionID  string   `json:"session_id"`
+	MaxResults int      `json:"max_results,omitempty"`
+}
+
+type SearchResults struct {
+	Results    []SearchMatch `json:"results"`
+	Done       bool          `json:"done"`
+	Error      string        `json:"error,omitempty"`
+	TotalFound int           `json:"total_found"`
+}
+
+type StopSearchArgs struct {
+	DeviceID  DeviceID `json:"device_id"`
+	SessionID string   `json:"session_id"`
+}
+type ListSearchesArgs struct {
+	DeviceID DeviceID `json:"device_id"`
+}
+
+type SearchSummary struct {
+	SessionID  string `json:"session_id"`
+	Done       bool   `json:"done"`
+	Buffered   int    `json:"buffered"`
+	Returned   int    `json:"returned"`
+	TotalFound int    `json:"total_found"`
+}
+
+type ListSessionsArgs struct {
+	DeviceID DeviceID `json:"device_id"`
+}
+type ListProcessesArgs struct {
+	DeviceID   DeviceID `json:"device_id"`
+	MaxResults int      `json:"max_results,omitempty"`
+}
+type KillProcessArgs struct {
+	DeviceID DeviceID `json:"device_id"`
+	PID      int      `json:"pid"`
+}
+type GetConfigArgs struct {
+	DeviceID DeviceID `json:"device_id"`
+}

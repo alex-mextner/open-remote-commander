@@ -11,8 +11,12 @@ ORC targets workflow compatibility, not private implementation compatibility.
 | Device pairing | 🟡 | storage/types specified; HTTP flow being completed |
 | OAuth resource protection | ✅ verifier | dev HMAC + production introspection |
 | Device dashboard | ⏳ | control-plane web app next |
-| File/code search | ⏳ | planned |
-| Multi-file edit | ⏳ | planned |
+| File/content search | ✅ | bounded async sessions with pagination; no ripgrep dependency |
+| Read multiple files | ✅ | bounded total/per-file reads |
+| Exact edit block | ✅ | expected-replacement safety check |
+| AST/symbol-aware code search | ⏳ | planned |
+| Process/session inspection | ✅ | agent sessions + bounded OS process list; arbitrary kill is opt-in |
+| Non-secret agent config | ✅ | read-only policy/platform snapshot |
 | GUI/screenshot control | ⏳ | separate higher-risk capability |
 | Hosted relay | ⏳ | self-host container target; deployment manifests next |
 

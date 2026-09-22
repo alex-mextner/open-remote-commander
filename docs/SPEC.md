@@ -151,17 +151,24 @@ Ping/pong frames are application-level liveness frames in addition to WebSocket 
 | `list_devices` | list caller-owned devices and online state | no |
 | `ping` | confirm selected device is reachable | no |
 | `read_file` | bounded file read with offset | no |
+| `read_multiple_files` | bounded bulk reads with per-file errors | no |
 | `write_file` | atomic bounded write | yes |
+| `edit_block` | exact-string edit with expected replacement count | yes |
 | `list_directory` | bounded directory listing | no |
 | `create_directory` | create directory tree | yes |
 | `move_file` | rename/move within allowed roots | yes |
 | `get_file_info` | stat file/directory | no |
+| `start_search` / `get_more_search_results` / `stop_search` / `list_searches` | bounded async filename/content search sessions | no |
 | `start_process` | start argv or optional shell command | yes |
 | `read_process_output` | cursor-based bounded process output | no |
 | `interact_with_process` | write stdin | yes |
 | `force_terminate` | terminate process session | yes |
+| `list_sessions` | inspect agent-owned process sessions | no |
+| `list_processes` | bounded OS process listing | no |
+| `kill_process` | terminate arbitrary OS PID when explicitly enabled locally | yes |
+| `get_config` | non-secret local policy/platform snapshot | no |
 
-Future compatibility tools: file search, code-symbol search, multi-file edit, process listing, configuration, desktop screenshots, and explicit GUI control.
+Future compatibility tools: AST/symbol-aware code search, structured-document readers/editors, configuration mutation, desktop screenshots, and explicit GUI control.
 
 ## 9. Local filesystem policy
 

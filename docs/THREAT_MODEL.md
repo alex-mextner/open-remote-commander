@@ -17,11 +17,12 @@
 | Device-token database leak | store only SHA-256 token hash; high-entropy random token |
 | Symlink path escape | canonicalize existing paths and existing ancestors before containment check |
 | Malicious huge payload | HTTP/WebSocket/read/write/process limits; no WS compression |
-| Goroutine/memory exhaustion | bounded in-flight semaphore, process count and ring buffers |
+| Goroutine/memory exhaustion | bounded in-flight semaphore, process/search session counts, result caps and process ring buffers |
 | Credential leakage in logs | structured metadata logs; never log Authorization headers or tool payloads |
 | Replay of pairing code | expiry + one-time consume + hashed codes |
 | Stolen browser/MCP session | rely on authorization server MFA/session security; narrow audience/scope |
 | Relay compromise | server has no local shell; payload persistence disabled by design |
+| Process enumeration/kill | process arguments may contain sensitive values; results are not persisted; arbitrary PID kill is disabled by default and requires explicit local opt-in |
 | Agent compromise | equivalent to local user compromise; mitigate with OS account/container/VM |
 
 ## Deliberate non-boundaries

@@ -134,19 +134,9 @@ func (m *Manager) Start(req StartRequest) (StartResult, error) {
 		m.mu.Unlock()
 		return StartResult{}, err
 	}
-	stdout, err := cmd.StdoutPipe()
-	if err != nil {
-		cancel()
-		m.mu.Unlock()
-		return StartResult{}, err
-	}
-	stderr, err := cmd.StderrPipe()
-	if err != nil {
-		cancel()
-		m.mu.Unlock()
-		return StartResult{}, err
-	}
 	p := &process{cmd: cmd, stdin: stdin, buf: &ring{max: m.maxBuffer}, done: make(chan struct{}), cancel: cancel}
+	cmd.Stdout = outputWriter{p: p}
+	cmd.Stderr = outputWriter{p: p, prefix: "[stderr] "}
 	if err := cmd.Start(); err != nil {
 		cancel()
 		m.mu.Unlock()
@@ -156,13 +146,8 @@ func (m *Manager) Start(req StartRequest) (StartResult, error) {
 	m.active++
 	m.mu.Unlock()
 
-	var captureWG sync.WaitGroup
-	captureWG.Add(2)
-	go func() { defer captureWG.Done(); p.capture(stdout, "") }()
-	go func() { defer captureWG.Done(); p.capture(stderr, "[stderr] ") }()
 	go func() {
 		err := cmd.Wait()
-		captureWG.Wait()
 		p.mu.Lock()
 		code := 0
 		if err != nil {
@@ -277,22 +262,19 @@ func (m *Manager) get(id string) (*process, error) {
 	return p, nil
 }
 
-func (p *process) capture(r io.Reader, prefix string) {
-	buf := make([]byte, 32<<10)
-	for {
-		n, err := r.Read(buf)
-		if n > 0 {
-			p.mu.Lock()
-			if prefix != "" {
-				p.buf.write([]byte(prefix))
-			}
-			p.buf.write(buf[:n])
-			p.mu.Unlock()
-		}
-		if err != nil {
-			return
-		}
+type outputWriter struct {
+	p      *process
+	prefix string
+}
+
+func (w outputWriter) Write(b []byte) (int, error) {
+	w.p.mu.Lock()
+	defer w.p.mu.Unlock()
+	if w.prefix != "" && len(b) > 0 {
+		w.p.buf.write([]byte(w.prefix))
 	}
+	w.p.buf.write(b)
+	return len(b), nil
 }
 
 func (r *ring) write(p []byte) {
@@ -367,3 +349,45 @@ func randomID() (string, error) {
 }
 
 func (m *Manager) String() string { return fmt.Sprintf("process manager (%d max)", m.maxProcs) }
+
+type SessionSummary struct {
+	ProcessID string `json:"process_id"`
+	PID       int    `json:"pid"`
+	Exited    bool   `json:"exited"`
+	ExitCode  *int   `json:"exit_code,omitempty"`
+}
+
+func (m *Manager) List() []SessionSummary {
+	m.mu.RLock()
+	pairs := make([]struct {
+		id string
+		p  *process
+	}, 0, len(m.procs))
+	for id, p := range m.procs {
+		pairs = append(pairs, struct {
+			id string
+			p  *process
+		}{id, p})
+	}
+	m.mu.RUnlock()
+	out := make([]SessionSummary, 0, len(pairs))
+	for _, pair := range pairs {
+		pair.p.mu.Lock()
+		var exitCopy *int
+		if pair.p.exitCode != nil {
+			v := *pair.p.exitCode
+			exitCopy = &v
+		}
+		pid := 0
+		if pair.p.cmd != nil && pair.p.cmd.Process != nil {
+			pid = pair.p.cmd.Process.Pid
+		}
+		out = append(out, SessionSummary{ProcessID: pair.id, PID: pid, Exited: pair.p.exitCode != nil, ExitCode: exitCopy})
+		pair.p.mu.Unlock()
+	}
+	return out
+}
+
+func (m *Manager) Config() map[string]any {
+	return map[string]any{"max_processes": m.maxProcs, "max_buffer_bytes": m.maxBuffer, "max_runtime": m.maxRuntime.String(), "shell_enabled": m.allowShell}
+}
