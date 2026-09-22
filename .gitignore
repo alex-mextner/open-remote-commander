@@ -1,0 +1,14 @@
+.env
+.env.*
+!.env.example
+.vercel/
+.idea/
+.vscode/
+.DS_Store
+bin/
+dist/
+coverage.out
+*.prof
+*.test
+*.log
+.tmp/

@@ -1,0 +1,17 @@
+version: "2"
+linters:
+  enable:
+    - bodyclose
+    - errorlint
+    - govet
+    - ineffassign
+    - misspell
+    - noctx
+    - revive
+    - staticcheck
+    - unconvert
+  exclusions:
+    generated: lax
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
