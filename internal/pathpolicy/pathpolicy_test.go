@@ -22,8 +22,12 @@ func TestResolveExistingInsideRoot(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got != file {
-		t.Fatalf("got %q want %q", got, file)
+	want, err := filepath.EvalSymlinks(file)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != want {
+		t.Fatalf("got %q want %q", got, want)
 	}
 }
 

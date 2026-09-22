@@ -7,7 +7,7 @@ The protocol is intentionally smaller than MCP. MCP terminates at `orc-server`; 
 - WebSocket, one active connection per `device_id` in v1.
 - `wss://` required outside loopback.
 - JSON text messages.
-- Maximum logical message size: 4 MiB.
+- Maximum logical relay message size: 16 MiB.
 - Unknown frame types or malformed required fields close the connection.
 
 ## Frames

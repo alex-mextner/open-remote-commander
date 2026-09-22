@@ -30,10 +30,7 @@ func TestPairingHTTPFlow(t *testing.T) {
 	defer ts.Close()
 
 	startBody, _ := json.Marshal(apiv1.PairingStartRequest{DeviceName: "Laptop"})
-	resp, err := http.Post(ts.URL+"/api/v1/pairings", "application/json", bytes.NewReader(startBody))
-	if err != nil {
-		t.Fatal(err)
-	}
+	resp := postJSON(t, ts.URL+"/api/v1/pairings", startBody)
 	if resp.StatusCode != 201 {
 		t.Fatalf("start status=%d", resp.StatusCode)
 	}
@@ -45,7 +42,7 @@ func TestPairingHTTPFlow(t *testing.T) {
 
 	token, _ := v.Mint("alice", []string{"orc:tools"}, time.Minute)
 	approveBody, _ := json.Marshal(apiv1.PairingApproveRequest{UserCode: start.UserCode})
-	req, _ := http.NewRequest(http.MethodPost, ts.URL+"/api/v1/pairings/approve", bytes.NewReader(approveBody))
+	req, _ := http.NewRequestWithContext(context.Background(), http.MethodPost, ts.URL+"/api/v1/pairings/approve", bytes.NewReader(approveBody))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer "+token)
 	resp, err = http.DefaultClient.Do(req)
@@ -58,10 +55,7 @@ func TestPairingHTTPFlow(t *testing.T) {
 	resp.Body.Close()
 
 	pollBody, _ := json.Marshal(apiv1.PairingTokenRequest{DeviceCode: start.DeviceCode})
-	resp, err = http.Post(ts.URL+"/api/v1/pairings/token", "application/json", bytes.NewReader(pollBody))
-	if err != nil {
-		t.Fatal(err)
-	}
+	resp = postJSON(t, ts.URL+"/api/v1/pairings/token", pollBody)
 	if resp.StatusCode != 200 {
 		t.Fatalf("token status=%d", resp.StatusCode)
 	}
@@ -76,4 +70,18 @@ func TestPairingHTTPFlow(t *testing.T) {
 	if _, err := st.AuthenticateDevice(context.Background(), string(tok.DeviceID), tok.AccessToken); err != nil {
 		t.Fatal(err)
 	}
+}
+
+func postJSON(t *testing.T, url string, body []byte) *http.Response {
+	t.Helper()
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodPost, url, bytes.NewReader(body))
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return resp
 }

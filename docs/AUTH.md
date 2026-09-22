@@ -55,3 +55,27 @@ The reference Neon `dev` branch can host **dashboard identity** through Neon Aut
 ## Pairing secret
 
 `ORC_PAIRING_SECRET` is a separate random server secret. Human pairing codes have low entropy by design, so the database stores `HMAC-SHA256(pairing_secret, normalized_user_code)` rather than a plain SHA-256 hash. Device codes and device tokens are high entropy and are stored as SHA-256 hashes.
+
+## Private OpenAI tunnel mode
+
+For a developer machine connected through OpenAI Secure MCP Tunnel, the MCP
+listener can remain private on loopback and avoid a separate browser OAuth
+flow for the MCP endpoint:
+
+    ORC_LISTEN_ADDR=127.0.0.1:8765
+    ORC_PUBLIC_BASE_URL=http://127.0.0.1:8765
+    ORC_MCP_TRUST_LOOPBACK=true
+    ORC_MCP_TRUSTED_SUBJECT=<stable-local-subject>
+
+This mode is rejected at configuration load time if the listener is not an
+explicit loopback address. At startup ORC creates a random in-memory bearer.
+Only unauthenticated loopback requests to /mcp receive that bearer through a
+local middleware; it is never written to disk.
+
+The pairing/device control APIs continue to use the configured dev or
+introspection verifier. Protected Resource Metadata is not published in trusted
+loopback mode so tunnel-client treats the local MCP target as intentionally
+no-auth.
+
+Do not use trusted loopback mode behind a reverse proxy or a non-loopback
+listener. Public deployments must use normal resource-server authentication.

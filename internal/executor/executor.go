@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"strings"
 	"unicode/utf8"
 
@@ -21,9 +22,10 @@ import (
 )
 
 const (
-	maxReadBytes  = 4 << 20
-	maxWriteBytes = 4 << 20
-	maxListItems  = 2000
+	maxReadBytes         = 4 << 20
+	maxWriteBytes        = 4 << 20
+	maxListItems         = 2000
+	maxCombinedReadBytes = 8 << 20
 )
 
 type Executor struct {
@@ -42,53 +44,90 @@ func NewWithOptions(paths *pathpolicy.Policy, procs *processmgr.Manager, options
 	return &Executor{paths: paths, procs: procs, search: searchmgr.New(8), allowKillProcess: options.AllowKillProcess}
 }
 
-func (e *Executor) Execute(ctx context.Context, tool string, raw json.RawMessage) (any, error) {
-	switch tool {
-	case "ping":
+type toolHandler func(*Executor, context.Context, json.RawMessage) (any, error)
+
+var toolHandlers = map[string]toolHandler{
+	"ping": func(_ *Executor, _ context.Context, _ json.RawMessage) (any, error) {
 		return map[string]any{"ok": true}, nil
-	case "read_file":
+	},
+	"read_file": func(e *Executor, _ context.Context, raw json.RawMessage) (any, error) {
 		return e.readFile(raw)
-	case "write_file":
+	},
+	"write_file": func(e *Executor, _ context.Context, raw json.RawMessage) (any, error) {
 		return e.writeFile(raw)
-	case "read_multiple_files":
+	},
+	"read_multiple_files": func(e *Executor, _ context.Context, raw json.RawMessage) (any, error) {
 		return e.readMultipleFiles(raw)
-	case "edit_block":
+	},
+	"edit_block": func(e *Executor, _ context.Context, raw json.RawMessage) (any, error) {
 		return e.editBlock(raw)
-	case "list_directory":
+	},
+	"list_directory": func(e *Executor, _ context.Context, raw json.RawMessage) (any, error) {
 		return e.listDirectory(raw)
-	case "create_directory":
+	},
+	"create_directory": func(e *Executor, _ context.Context, raw json.RawMessage) (any, error) {
 		return e.createDirectory(raw)
-	case "move_file":
+	},
+	"move_file": func(e *Executor, _ context.Context, raw json.RawMessage) (any, error) {
 		return e.moveFile(raw)
-	case "get_file_info":
+	},
+	"get_file_info": func(e *Executor, _ context.Context, raw json.RawMessage) (any, error) {
 		return e.getFileInfo(raw)
-	case "start_process":
+	},
+	"start_process": func(e *Executor, _ context.Context, raw json.RawMessage) (any, error) {
 		return e.startProcess(raw)
-	case "read_process_output":
+	},
+	"read_process_output": func(e *Executor, _ context.Context, raw json.RawMessage) (any, error) {
 		return e.readProcess(raw)
-	case "interact_with_process":
+	},
+	"interact_with_process": func(e *Executor, _ context.Context, raw json.RawMessage) (any, error) {
 		return e.writeProcess(raw)
-	case "force_terminate":
+	},
+	"force_terminate": func(e *Executor, _ context.Context, raw json.RawMessage) (any, error) {
 		return e.terminateProcess(raw)
-	case "list_sessions":
+	},
+	"list_sessions": func(e *Executor, _ context.Context, _ json.RawMessage) (any, error) {
 		return map[string]any{"sessions": e.procs.List()}, nil
-	case "start_search":
+	},
+	"start_search": func(e *Executor, _ context.Context, raw json.RawMessage) (any, error) {
 		return e.startSearch(raw)
-	case "get_more_search_results":
+	},
+	"get_more_search_results": func(e *Executor, _ context.Context, raw json.RawMessage) (any, error) {
 		return e.getMoreSearch(raw)
-	case "stop_search":
+	},
+	"stop_search": func(e *Executor, _ context.Context, raw json.RawMessage) (any, error) {
 		return e.stopSearch(raw)
-	case "list_searches":
+	},
+	"list_searches": func(e *Executor, _ context.Context, _ json.RawMessage) (any, error) {
 		return map[string]any{"searches": e.search.List()}, nil
-	case "list_processes":
+	},
+	"list_processes": func(e *Executor, ctx context.Context, raw json.RawMessage) (any, error) {
 		return e.listProcesses(ctx, raw)
-	case "kill_process":
+	},
+	"kill_process": func(e *Executor, _ context.Context, raw json.RawMessage) (any, error) {
 		return e.killProcess(raw)
-	case "get_config":
+	},
+	"get_config": func(e *Executor, _ context.Context, _ json.RawMessage) (any, error) {
 		return e.getConfig(), nil
-	default:
+	},
+}
+
+// SupportedTools returns the exact tool names accepted by Execute.
+func SupportedTools() []string {
+	names := make([]string, 0, len(toolHandlers))
+	for name := range toolHandlers {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return names
+}
+
+func (e *Executor) Execute(ctx context.Context, tool string, raw json.RawMessage) (any, error) {
+	handler := toolHandlers[tool]
+	if handler == nil {
 		return nil, fmt.Errorf("unsupported tool %q", tool)
 	}
+	return handler(e, ctx, raw)
 }
 
 func decodeArgs(raw json.RawMessage, dst any) error {
@@ -120,9 +159,9 @@ func (e *Executor) readFile(raw json.RawMessage) (any, error) {
 	if st.IsDir() {
 		return nil, errors.New("path is a directory")
 	}
-	max := a.MaxBytes
-	if max <= 0 || max > maxReadBytes {
-		max = maxReadBytes
+	limit := a.MaxBytes
+	if limit <= 0 || limit > maxReadBytes {
+		limit = maxReadBytes
 	}
 	if a.Offset < 0 {
 		return nil, errors.New("offset cannot be negative")
@@ -135,13 +174,13 @@ func (e *Executor) readFile(raw json.RawMessage) (any, error) {
 	if _, err := f.Seek(a.Offset, io.SeekStart); err != nil {
 		return nil, err
 	}
-	b, err := io.ReadAll(io.LimitReader(f, int64(max)+1))
+	b, err := io.ReadAll(io.LimitReader(f, int64(limit)+1))
 	if err != nil {
 		return nil, err
 	}
-	truncated := len(b) > max
+	truncated := len(b) > limit
 	if truncated {
-		b = b[:max]
+		b = b[:limit]
 	}
 	if utf8.Valid(b) {
 		return map[string]any{"path": path, "encoding": "utf-8", "content": string(b), "offset": a.Offset, "next_offset": a.Offset + int64(len(b)), "truncated": truncated}, nil
@@ -409,9 +448,9 @@ func (e *Executor) readMultipleFiles(raw json.RawMessage) (any, error) {
 	if len(a.Paths) == 0 || len(a.Paths) > 32 {
 		return nil, errors.New("paths must contain 1 to 32 files")
 	}
-	max := a.MaxBytesPerFile
-	if max <= 0 || max > maxReadBytes {
-		max = maxReadBytes
+	limit := a.MaxBytesPerFile
+	if limit <= 0 || limit > maxReadBytes {
+		limit = maxReadBytes
 	}
 	files := make([]map[string]any, 0, len(a.Paths))
 	total := 0
@@ -438,20 +477,20 @@ func (e *Executor) readMultipleFiles(raw json.RawMessage) (any, error) {
 			files = append(files, entry)
 			continue
 		}
-		b, readErr := io.ReadAll(io.LimitReader(f, int64(max)+1))
+		b, readErr := io.ReadAll(io.LimitReader(f, int64(limit)+1))
 		_ = f.Close()
 		if readErr != nil {
 			entry["error"] = readErr.Error()
 			files = append(files, entry)
 			continue
 		}
-		truncated := len(b) > max
+		truncated := len(b) > limit
 		if truncated {
-			b = b[:max]
+			b = b[:limit]
 		}
 		total += len(b)
-		if total > 16<<20 {
-			return nil, errors.New("combined read exceeds 16MiB")
+		if total > maxCombinedReadBytes {
+			return nil, errors.New("combined read exceeds 8MiB")
 		}
 		entry["path"] = path
 		entry["truncated"] = truncated

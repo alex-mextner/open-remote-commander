@@ -12,6 +12,9 @@ linters:
     - unconvert
   exclusions:
     generated: lax
+    presets:
+      - comments
+      - std-error-handling
 issues:
   max-issues-per-linter: 0
   max-same-issues: 0

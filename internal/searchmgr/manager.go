@@ -141,20 +141,20 @@ func (m *Manager) Start(q Query) (string, error) {
 	return id, nil
 }
 
-func (m *Manager) GetMore(id string, max int) (MoreResult, error) {
+func (m *Manager) GetMore(id string, limit int) (MoreResult, error) {
 	s := m.lookup(id)
 	if s == nil {
 		return MoreResult{}, ErrNotFound
 	}
-	if max <= 0 {
-		max = 100
+	if limit <= 0 {
+		limit = 100
 	}
-	if max > 500 {
-		max = 500
+	if limit > 500 {
+		limit = 500
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	end := s.next + max
+	end := s.next + limit
 	if end > len(s.results) {
 		end = len(s.results)
 	}
