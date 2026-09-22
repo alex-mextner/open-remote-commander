@@ -65,3 +65,35 @@ For higher-risk automation, run the agent under a dedicated OS account, containe
 5. Scan the repository and built artifacts for secrets.
 6. Tag only from a clean `main` commit.
 7. Verify release checksums/artifacts and smoke-test at least macOS arm64 + Linux amd64 before announcing.
+
+## 6. Private ChatGPT developer-machine profile
+
+For a personal/development Mac, a validated deployment is:
+
+- orc-server bound to 127.0.0.1:8765;
+- Neon dev branch for durable device/pairing/audit state;
+- orc-agent as a user LaunchAgent with a persisted 0600 device credential;
+- OpenAI tunnel-client as the only remote path to /mcp;
+- Vercel for the static dashboard only.
+
+Install the current tunnel-client release from openai/tunnel-client and verify
+its published SHA-256 before installation. Then use:
+
+    scripts/setup-openai-tunnel.sh
+
+See docs/CHATGPT.md for the Platform and ChatGPT UI steps.
+
+### macOS supervision
+
+The repository includes scripts/install-macos-launchd.sh. With populated
+~/.config/open-remote-commander/server.env, agent.env, and database_url,
+it builds the current checkout, installs the binaries/wrappers, validates the
+plists, and starts two user LaunchAgents:
+
+- app.openremotecommander.server
+- app.openremotecommander.agent
+
+Override the prefix with ORC_LAUNCHD_PREFIX if needed. The services keep
+secrets under ~/.config/open-remote-commander with mode 0600 and logs under
+~/Library/Logs/OpenRemoteCommander. Restarting the relay should cause the agent
+to reconnect with exponential backoff without repeating device pairing.

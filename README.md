@@ -23,7 +23,7 @@ flowchart LR
     WEB --> DB
 ```
 
-The current server uses the official `modelcontextprotocol/go-sdk` and a stateless MCP transport. Device connections are stateful WebSockets; the execution authority remains on the paired machine.
+The current gateway implements the MCP HTTP/JSON-RPC surface directly in Go and supports the 2026-07-28 stateless discovery flow plus the 2025-11-25 compatibility path. Device connections are stateful WebSockets; execution authority remains on the paired machine.
 
 ## Implemented MCP tools
 
@@ -62,7 +62,7 @@ See [SECURITY.md](SECURITY.md) and [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md).
 
 ## Local development
 
-Requires Go 1.25 or newer.
+Requires Go 1.23 or newer; CI and releases should use a current supported Go toolchain.
 
 ```bash
 cp .env.example .env
@@ -79,7 +79,7 @@ For a memory-only development run, leave `DATABASE_URL` empty. Run the agent wit
 
 `ORC_PAIRING_SECRET` must be a separate high-entropy server secret used to HMAC short human pairing codes before storage.
 
-`ORC_AUTH_MODE=dev` is loopback/development authentication only. For an exposed endpoint use `ORC_AUTH_MODE=introspection` with a standards-compliant authorization server. The verifier requires an active token with `sub`, expiration, the MCP resource in `aud`, and the requested scopes. Protected Resource Metadata then advertises `ORC_AUTH_ISSUER` as required by MCP authorization discovery.
+`ORC_AUTH_MODE=dev` is loopback/development authentication only. For a private OpenAI Secure MCP Tunnel, keep the relay on explicit loopback and set `ORC_MCP_TRUST_LOOPBACK=true` with `ORC_MCP_TRUSTED_SUBJECT`; only the MCP route receives the in-memory tunnel identity. For an exposed endpoint use `ORC_AUTH_MODE=introspection` with a standards-compliant authorization server. The verifier requires an active token with `sub`, expiration, the MCP resource in `aud`, and the requested scopes. Protected Resource Metadata then advertises `ORC_AUTH_ISSUER` as required by MCP authorization discovery.
 
 ### Neon
 
@@ -87,7 +87,7 @@ Use the pooled Neon URL as `DATABASE_URL` for application traffic. Apply `migrat
 
 ### Vercel
 
-`web/` is a dependency-free control-plane dashboard deployable independently on Vercel. It can approve pairing codes, list device status, and revoke devices; bearer tokens stay in browser memory only. The long-lived Go relay remains a normal container/service so WebSocket lifecycle, graceful shutdown, connection ownership, and backpressure are explicit. A Vercel Go adapter can be added for stateless control-plane routes without moving local execution into serverless functions.
+`web/` is a dependency-free control-plane dashboard deployable independently on Vercel. It can approve pairing codes, list device status, and revoke devices; bearer tokens stay in browser memory only. The reference dashboard deployment is https://open-remote-commander-dashboard.vercel.app. The long-lived Go relay remains a normal container/service so WebSocket lifecycle, graceful shutdown, connection ownership, and backpressure are explicit. A Vercel Go adapter can be added for stateless control-plane routes without moving local execution into serverless functions.
 
 ## Verification
 
@@ -106,11 +106,13 @@ make build
 1. Turnkey production authorization-server profile/configuration (external standards-compliant AS works now via introspection).
 2. Device rename/session views and first-class OAuth login in the Vercel dashboard (pair/list/revoke already work).
 3. Multi-relay connection ownership and a transient dispatch bus for horizontal scaling.
-4. Remaining Desktop Commander-compatible search, multi-file edit, process inspection, and optional GUI tools.
-5. Signed desktop installers, auto-update metadata, Windows service and macOS launchd support.
+4. AST/symbol-aware code search, structured-document adapters, and optional GUI/screenshot tools.
+5. Signed desktop installers, auto-update metadata, and Windows service packaging; macOS launchd operation is documented and validated.
 6. Protocol conformance, chaos/load tests, and external security review.
 
-See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), [docs/AUTH.md](docs/AUTH.md), [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md), and [docs/COMPATIBILITY.md](docs/COMPATIBILITY.md).
+On macOS, scripts/install-macos-launchd.sh installs the built server/agent as persistent user LaunchAgents after the protected config files are present. scripts/setup-openai-tunnel.sh attaches the loopback MCP endpoint to an OpenAI Secure MCP Tunnel without exposing an inbound port.
+
+See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), [docs/AUTH.md](docs/AUTH.md), [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md), [docs/CHATGPT.md](docs/CHATGPT.md), and [docs/COMPATIBILITY.md](docs/COMPATIBILITY.md).
 
 ## License
 
