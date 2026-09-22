@@ -188,8 +188,6 @@ func (d *deviceConn) close(err error) {
 			select {
 			case ch <- pendingResult{err: err}:
 			default:
-				{
-				}
 			}
 			delete(d.pending, id)
 		}

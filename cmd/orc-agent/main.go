@@ -69,6 +69,7 @@ func main() {
 	exec := executor.NewWithOptions(policy, pm, executor.Options{AllowKillProcess: cfg.AllowKillProcess})
 
 	backoff := time.Second
+reconnectLoop:
 	for ctx.Err() == nil {
 		err = connectAndServe(ctx, cfg.ServerURL, creds, exec, logger)
 		if ctx.Err() != nil {
@@ -79,7 +80,7 @@ func main() {
 		select {
 		case <-ctx.Done():
 			t.Stop()
-			break
+			break reconnectLoop
 		case <-t.C:
 		}
 		if backoff < 30*time.Second {

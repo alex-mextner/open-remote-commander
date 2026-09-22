@@ -3,6 +3,7 @@ package relay
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -74,7 +75,7 @@ func TestHubCallRoundTrip(t *testing.T) {
 	if !got["ok"] {
 		t.Fatalf("result=%s", res.Value)
 	}
-	if _, err := h.Call(ctx, "bob", "d1", "ping", map[string]any{}); err != ErrOffline {
+	if _, err := h.Call(ctx, "bob", "d1", "ping", map[string]any{}); !errors.Is(err, ErrOffline) {
 		t.Fatalf("cross-owner error=%v", err)
 	}
 }

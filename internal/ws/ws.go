@@ -85,7 +85,7 @@ func Dial(ctx context.Context, rawURL, bearer string, maxMessageBytes int64) (*C
 	if err != nil {
 		return nil, err
 	}
-	if u.Scheme != "wss" && !(u.Scheme == "ws" && isLoopbackHost(u.Hostname())) {
+	if u.Scheme != "wss" && (u.Scheme != "ws" || !isLoopbackHost(u.Hostname())) {
 		return nil, errors.New("websocket URL must use wss (ws is allowed only for loopback)")
 	}
 	hostPort := u.Host

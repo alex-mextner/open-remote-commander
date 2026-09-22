@@ -295,7 +295,7 @@ func (r *ring) write(p []byte) {
 	}
 }
 
-func (r *ring) read(cursor int64, max int) ([]byte, int64, bool) {
+func (r *ring) read(cursor int64, limit int) ([]byte, int64, bool) {
 	truncated := cursor < r.base
 	if cursor < r.base {
 		cursor = r.base
@@ -306,8 +306,8 @@ func (r *ring) read(cursor int64, max int) ([]byte, int64, bool) {
 	}
 	startIdx := int(cursor - r.base)
 	available := len(r.data) - startIdx
-	if available > max {
-		available = max
+	if available > limit {
+		available = limit
 	}
 	out := bytes.Clone(r.data[startIdx : startIdx+available])
 	return out, cursor + int64(available), truncated

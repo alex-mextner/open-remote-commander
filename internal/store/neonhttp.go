@@ -49,8 +49,9 @@ func NewNeonHTTP(connectionString, endpointOverride string) (*NeonHTTP, error) {
 		endpoint = "https://" + strings.Join(parts, ".") + "/sql"
 	}
 	eu, err := url.Parse(endpoint)
-	if err != nil || eu.Host == "" || (eu.Scheme != "https" && !(eu.Scheme == "http" && (eu.Hostname() == "127.0.0.1" || eu.Hostname() == "localhost"))) {
-		return nil, errors.New("Neon HTTP endpoint must use https outside loopback")
+	loopback := eu != nil && (eu.Hostname() == "127.0.0.1" || eu.Hostname() == "localhost")
+	if err != nil || eu.Host == "" || (eu.Scheme != "https" && (eu.Scheme != "http" || !loopback)) {
+		return nil, errors.New("neon HTTP endpoint must use https outside loopback")
 	}
 	return &NeonHTTP{connectionString: connectionString, endpoint: endpoint, client: &http.Client{Timeout: 8 * time.Second}}, nil
 }
