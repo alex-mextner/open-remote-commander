@@ -2,7 +2,7 @@
 
 Open Remote Commander is an open-source remote MCP gateway and device agent written in Go. It lets an MCP-capable AI client invoke filesystem and terminal tools on computers you control without exposing an inbound port on those computers.
 
-> Status: **v0.1 engineering preview**. The relay and device execution path is implemented. Production MCP bearer validation is implemented through standards-based OAuth token introspection; the authorization-server UI/device pairing flow and interactive device dashboard are tracked separately rather than hidden behind demo auth.
+> Status: **v0.1 engineering preview**. The Go relay, outbound device agent, pairing flow, device control API, metadata-only audit path, and static dashboard are implemented. Production MCP bearer validation uses standards-based OAuth token introspection. A standards-compliant external authorization server is still required for production OAuth issuance/login; ORC deliberately does not implement a home-grown OAuth server.
 
 ## Why this project exists
 
@@ -58,15 +58,14 @@ Requires Go 1.25 or newer.
 cp .env.example .env
 # Export the values from .env with your preferred env loader.
 
-go run ./cmd/orc-token  # create an MCP token
-go run ./cmd/orc-token  # create a distinct agent token
+go run ./cmd/orc-token  # mint a development MCP bearer token
 
 go run ./cmd/orc-server
-# in another terminal
+# in another terminal; the agent starts the pairing flow automatically
 go run ./cmd/orc-agent
 ```
 
-For a memory-only development run, leave `DATABASE_URL` empty and set the `ORC_BOOTSTRAP_DEVICE_*` values. The bootstrap token must match `ORC_AGENT_TOKEN` and the bootstrap owner must match the authenticated MCP subject.
+For a memory-only development run, leave `DATABASE_URL` empty. Run the agent without `ORC_DEVICE_ID`/`ORC_AGENT_TOKEN`; it will request a one-time pairing code, then persist the resulting device credential locally after approval.
 
 `ORC_PAIRING_SECRET` must be a separate high-entropy server secret used to HMAC short human pairing codes before storage.
 
@@ -94,15 +93,14 @@ make build
 
 ## Roadmap
 
-1. Bundled OAuth 2.1 authorization-server profile (external standards-compliant AS works now via introspection).
-2. RFC 8628 device authorization pairing with short-lived user codes.
-3. Interactive Vercel device dashboard with revoke/rename/session views.
-4. Multi-relay connection ownership and dispatch bus for horizontal scaling.
-5. Remaining Desktop Commander-compatible search, multi-file, edit, and process inspection tools.
-6. Signed desktop installers, auto-update metadata, Windows service and macOS launchd support.
-7. Protocol conformance, chaos tests, load tests, and external security review.
+1. Turnkey production authorization-server profile/configuration (external standards-compliant AS works now via introspection).
+2. Device rename/session views and first-class OAuth login in the Vercel dashboard (pair/list/revoke already work).
+3. Multi-relay connection ownership and a transient dispatch bus for horizontal scaling.
+4. Remaining Desktop Commander-compatible search, multi-file edit, process inspection, and optional GUI tools.
+5. Signed desktop installers, auto-update metadata, Windows service and macOS launchd support.
+6. Protocol conformance, chaos/load tests, and external security review.
 
-See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) and [docs/COMPATIBILITY.md](docs/COMPATIBILITY.md).
+See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), [docs/AUTH.md](docs/AUTH.md), [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md), and [docs/COMPATIBILITY.md](docs/COMPATIBILITY.md).
 
 ## License
 

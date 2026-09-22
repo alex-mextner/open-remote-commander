@@ -1,0 +1,30 @@
+version: 2
+project_name: open-remote-commander
+builds:
+  - id: orc-agent
+    main: ./cmd/orc-agent
+    binary: orc-agent
+    env: [CGO_ENABLED=0]
+    goos: [linux, darwin, windows]
+    goarch: [amd64, arm64]
+  - id: orc-server
+    main: ./cmd/orc-server
+    binary: orc-server
+    env: [CGO_ENABLED=0]
+    goos: [linux, darwin]
+    goarch: [amd64, arm64]
+  - id: orc-token
+    main: ./cmd/orc-token
+    binary: orc-token
+    env: [CGO_ENABLED=0]
+    goos: [linux, darwin, windows]
+    goarch: [amd64, arm64]
+archives:
+  - formats: [tar.gz]
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+checksum:
+  name_template: checksums.txt
+changelog:
+  sort: asc

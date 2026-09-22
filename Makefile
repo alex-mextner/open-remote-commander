@@ -1,4 +1,4 @@
-.PHONY: fmt test race vet vuln lint build check
+.PHONY: fmt test race vet vuln lint build fuzz check
 fmt:
 	gofmt -w $$(find . -name '*.go' -not -path './vendor/*')
 
@@ -19,5 +19,8 @@ lint:
 
 build:
 	go build ./cmd/...
+
+fuzz:
+	go test ./internal/pathpolicy -run=^$ -fuzz=FuzzResolveForCreateNoPanic -fuzztime=10s
 
 check: test race vet build
