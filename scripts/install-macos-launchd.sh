@@ -80,7 +80,21 @@ write_plist "$agent_label" "$BIN_DIR/orc-agent-run" "$agent_plist" agent
 uid="$(id -u)"
 launchctl bootout "gui/$uid/$agent_label" >/dev/null 2>&1 || true
 launchctl bootout "gui/$uid/$server_label" >/dev/null 2>&1 || true
-launchctl bootstrap "gui/$uid" "$server_plist"
+
+bootstrap_with_retry() {
+  local plist="$1" output=""
+  for _ in {1..40}; do
+    if output="$(launchctl bootstrap "gui/$uid" "$plist" 2>&1)"; then
+      return 0
+    fi
+    sleep .25
+  done
+  printf 'launchctl bootstrap failed for %s: %s
+' "$plist" "$output" >&2
+  return 1
+}
+
+bootstrap_with_retry "$server_plist"
 for _ in {1..50}; do
   if curl -fsS http://127.0.0.1:8765/readyz >/dev/null 2>&1; then
     break
@@ -88,7 +102,7 @@ for _ in {1..50}; do
   sleep .2
 done
 curl -fsS http://127.0.0.1:8765/readyz >/dev/null
-launchctl bootstrap "gui/$uid" "$agent_plist"
+bootstrap_with_retry "$agent_plist"
 
 echo "Installed:"
 echo "  $server_label"
